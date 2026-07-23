@@ -2,8 +2,19 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>순간 기록장</title>
+
+<!-- 홈 화면 추가 (PWA) -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2F4A3C">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="순간기록">
+<meta name="mobile-web-app-capable" content="yes">
+
 <style>
   :root {
     --bg: #F6F4EE;
@@ -25,16 +36,18 @@
     padding: 28px 16px 60px;
   }
   .wrap { max-width: 640px; margin: 0 auto; }
-  header { margin-bottom: 24px; border-bottom: 1px solid var(--line); padding-bottom: 16px; }
-  header .eyebrow { font-size: 12px; letter-spacing: 0.12em; color: var(--forest-light); text-transform: uppercase; font-weight: 600; }
+  header { margin-bottom: 24px; border-bottom: 1px solid var(--line); padding-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  header .titles .eyebrow { font-size: 12px; letter-spacing: 0.12em; color: var(--forest-light); text-transform: uppercase; font-weight: 600; }
   header h1 { font-family: Georgia, "Noto Serif KR", serif; font-size: 26px; margin: 6px 0 4px; color: var(--forest); }
   header p { margin: 0; font-size: 13.5px; color: var(--ink-soft); line-height: 1.5; }
+  .logout-btn { border: 1px solid var(--line); background: var(--paper); color: var(--ink-soft); font-size: 12.5px; padding: 7px 12px; border-radius: 8px; cursor: pointer; white-space: nowrap; margin-top: 4px; }
+  .logout-btn:hover { background: #F1EFE7; }
   .card { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 18px; margin-bottom: 20px; }
   .card h2 { font-size: 14px; margin: 0 0 14px; color: var(--forest); display: flex; align-items: center; gap: 8px; }
   .card h2 .num { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: var(--forest); color: white; font-size: 11px; font-weight: 700; }
   label { display: block; font-size: 12.5px; color: var(--ink-soft); margin: 12px 0 6px; }
   label:first-of-type { margin-top: 0; }
-  input[type="text"], textarea {
+  input[type="text"], input[type="email"], input[type="password"], textarea {
     width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
     font-size: 14.5px; font-family: inherit; color: var(--ink); background: #FCFBF8; resize: none;
   }
@@ -72,61 +85,89 @@
     padding: 10px 14px; border-radius: 8px; margin-bottom: 18px; line-height: 1.5; display: none;
   }
   .banner.show { display: block; }
+
+  /* 로그인 화면 */
+  #loginScreen { min-height: 70vh; display: flex; align-items: center; justify-content: center; }
+  #loginScreen.hidden { display: none; }
+  .login-card { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 28px 24px; width: 100%; max-width: 360px; }
+  .login-card h1 { font-family: Georgia, "Noto Serif KR", serif; font-size: 22px; color: var(--forest); margin: 0 0 4px; text-align: center; }
+  .login-card p.sub { text-align: center; color: var(--ink-soft); font-size: 12.5px; margin: 0 0 20px; }
+  #appScreen.hidden { display: none; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <div class="eyebrow">Signature Moments Journal</div>
-    <h1>순간 기록장</h1>
-    <p>오늘 기분 좋았던 작은 순간을 하루 한 줄씩 남겨보세요. 폰이든 노트북이든 어디서 적어도 동기화됩니다.</p>
-  </header>
 
-  <div class="banner" id="configBanner">
-    ⚠ Firebase 설정이 비어있습니다. 아래 코드의 <code>firebaseConfig</code> 부분을 본인 프로젝트(JEJU-TRIP-2608)의 설정값으로 채워주세요.
+  <!-- 로그인 화면 -->
+  <div id="loginScreen">
+    <div class="login-card">
+      <h1>순간 기록장</h1>
+      <p class="sub">본인 계정으로 로그인해주세요</p>
+      <label for="loginEmail">이메일</label>
+      <input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="username">
+      <label for="loginPassword">비밀번호</label>
+      <input type="password" id="loginPassword" placeholder="비밀번호" autocomplete="current-password">
+      <button class="save-btn" id="loginBtn">로그인</button>
+      <div class="status" id="loginStatus"></div>
+    </div>
   </div>
 
-  <div class="card">
-    <h2><span class="num">1</span>오늘의 순간</h2>
-    <label for="moment">오늘 하루 중 작게 기분 좋았던 순간은?</label>
-    <textarea id="moment" placeholder="예: 친구에게 복잡한 일정을 쉽게 정리해서 설명해줬다"></textarea>
-    <label for="emotion">그때 느낀 감정을 한 단어로 짚어보면?</label>
-    <input type="text" id="emotion" placeholder="예: 뿌듯함, 속 시원함, 보람">
-    <label>그 감정을 만든 핵심 가치는? (해당하는 것 선택, 복수 가능)</label>
-    <div class="value-tags" id="valueTags">
-      <button data-v="명료화">명료화</button>
-      <button data-v="기여">기여</button>
-      <button data-v="성취">성취</button>
-      <button data-v="연결">연결</button>
-      <button data-v="창조">창조</button>
-      <button data-v="분석">분석</button>
-      <button data-v="자율">자율</button>
-      <button data-v="배움">배움</button>
-    </div>
-    <label for="customValue">직접 입력 (선택)</label>
-    <input type="text" id="customValue" placeholder="목록에 없다면 직접 적어보세요">
-    <button class="save-btn" id="saveBtn">오늘 기록 저장하기</button>
-    <div class="status" id="status"></div>
-  </div>
+  <!-- 앱 화면 -->
+  <div id="appScreen" class="hidden">
+    <header>
+      <div class="titles">
+        <div class="eyebrow">Signature Moments Journal</div>
+        <h1>순간 기록장</h1>
+        <p>오늘 기분 좋았던 작은 순간을 하루 한 줄씩 남겨보세요. 폰이든 노트북이든 어디서 적어도 동기화됩니다.</p>
+      </div>
+      <button class="logout-btn" id="logoutBtn">로그아웃</button>
+    </header>
 
-  <div class="card">
-    <div class="log-header">
-      <h2>지금까지의 기록</h2>
-      <span class="log-count" id="logCount"></span>
+    <div class="banner" id="configBanner">
+      ⚠ Firebase 설정이 비어있습니다. 아래 코드의 <code>firebaseConfig</code> 부분을 본인 프로젝트의 설정값으로 채워주세요.
     </div>
-    <div id="log"><div class="loading">불러오는 중...</div></div>
+
+    <div class="card">
+      <h2><span class="num">1</span>오늘의 순간</h2>
+      <label for="moment">오늘 하루 중 작게 기분 좋았던 순간은?</label>
+      <textarea id="moment" placeholder="예: 친구에게 복잡한 일정을 쉽게 정리해서 설명해줬다"></textarea>
+      <label for="emotion">그때 느낀 감정을 한 단어로 짚어보면?</label>
+      <input type="text" id="emotion" placeholder="예: 뿌듯함, 속 시원함, 보람">
+      <label>그 감정을 만든 핵심 가치는? (해당하는 것 선택, 복수 가능)</label>
+      <div class="value-tags" id="valueTags">
+        <button data-v="명료화">명료화</button>
+        <button data-v="기여">기여</button>
+        <button data-v="성취">성취</button>
+        <button data-v="연결">연결</button>
+        <button data-v="창조">창조</button>
+        <button data-v="분석">분석</button>
+        <button data-v="자율">자율</button>
+        <button data-v="배움">배움</button>
+      </div>
+      <label for="customValue">직접 입력 (선택)</label>
+      <input type="text" id="customValue" placeholder="목록에 없다면 직접 적어보세요">
+      <button class="save-btn" id="saveBtn">오늘 기록 저장하기</button>
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="card">
+      <div class="log-header">
+        <h2>지금까지의 기록</h2>
+        <span class="log-count" id="logCount"></span>
+      </div>
+      <div id="log"><div class="loading">불러오는 중...</div></div>
+    </div>
   </div>
 </div>
 
-<!-- Firebase SDK (compat, 제주 앱과 같은 버전으로 맞추면 더 좋습니다) -->
+<!-- Firebase SDK (compat) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
 <script>
 // =====================================================================
-// 여기에 본인의 Firebase 프로젝트 설정값을 넣어주세요.
-// Firebase 콘솔 > 프로젝트 설정 > 일반 > 내 앱(SDK 설정 및 구성)에서 복사
-// JEJU-TRIP-2608에서 쓰던 것과 "같은" 값을 그대로 넣으면 같은 프로젝트를 재사용합니다.
+// 본인의 Firebase 프로젝트 설정값
 // =====================================================================
 const firebaseConfig = {
   apiKey: "AIzaSyBEUkwBCFv0ICfJ92AG_zK6Xkazx4ejchE",
@@ -143,13 +184,72 @@ if (!isConfigured) {
 }
 
 let db = null;
+let auth = null;
 if (isConfigured) {
   firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
+  auth = firebase.auth();
+  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
 }
 
-const COLLECTION = 'journalEntries'; // 제주 앱과 겹치지 않는 새 컬렉션
+const COLLECTION = 'journalEntries';
 
+// ---------------------------------------------------------------------
+// 로그인 / 로그아웃
+// ---------------------------------------------------------------------
+const loginScreen = document.getElementById('loginScreen');
+const appScreen = document.getElementById('appScreen');
+const loginBtn = document.getElementById('loginBtn');
+const loginStatus = document.getElementById('loginStatus');
+const logoutBtn = document.getElementById('logoutBtn');
+
+if (auth) {
+  auth.onAuthStateChanged((user) => {
+    if (user) {
+      loginScreen.classList.add('hidden');
+      appScreen.classList.remove('hidden');
+      loadEntries();
+    } else {
+      loginScreen.classList.remove('hidden');
+      appScreen.classList.add('hidden');
+    }
+  });
+
+  loginBtn.addEventListener('click', async () => {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    if (!email || !password) {
+      loginStatus.textContent = '이메일과 비밀번호를 입력해주세요.';
+      loginStatus.classList.add('error');
+      return;
+    }
+    loginStatus.classList.remove('error');
+    loginStatus.textContent = '로그인 중...';
+    loginBtn.disabled = true;
+    try {
+      await auth.signInWithEmailAndPassword(email, password);
+      loginStatus.textContent = '';
+    } catch (e) {
+      let msg = '로그인에 실패했습니다. 이메일/비밀번호를 확인해주세요.';
+      if (e.code === 'auth/too-many-requests') msg = '시도 횟수가 많아 잠시 후 다시 시도해주세요.';
+      loginStatus.textContent = msg;
+      loginStatus.classList.add('error');
+      console.error(e);
+    } finally {
+      loginBtn.disabled = false;
+    }
+  });
+
+  document.getElementById('loginPassword').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') loginBtn.click();
+  });
+
+  logoutBtn.addEventListener('click', () => auth.signOut());
+}
+
+// ---------------------------------------------------------------------
+// 기록 저장 / 불러오기
+// ---------------------------------------------------------------------
 const selectedValues = new Set();
 const valueTagsEl = document.getElementById('valueTags');
 const statusEl = document.getElementById('status');
@@ -271,7 +371,7 @@ saveBtn.addEventListener('click', async () => {
   }
 });
 
-loadEntries();
+// 서비스워커 없이도 홈 화면 추가는 매니페스트만으로 동작합니다.
 </script>
 </body>
 </html>
